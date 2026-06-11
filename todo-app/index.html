@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List App - Manage Your Tasks</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-check-circle"></i> My Tasks</h1>
+                <p class="subtitle">Stay organized and productive</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="todoInput" 
+                        class="todo-input" 
+                        placeholder="Add a new task..."
+                        autocomplete="off"
+                    >
+                    <button id="addBtn" class="btn btn-add">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                </div>
+                
+                <!-- Filter Buttons -->
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">
+                        <i class="fas fa-list"></i> All
+                    </button>
+                    <button class="filter-btn" data-filter="active">
+                        <i class="fas fa-circle"></i> Active
+                    </button>
+                    <button class="filter-btn" data-filter="completed">
+                        <i class="fas fa-check"></i> Completed
+                    </button>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats">
+                    <div class="stat">
+                        <span class="stat-label">Total:</span>
+                        <span class="stat-value" id="totalCount">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Active:</span>
+                        <span class="stat-value" id="activeCount">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Completed:</span>
+                        <span class="stat-value" id="completedCount">0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Todos List -->
+            <section class="todos-section">
+                <div id="todosList" class="todos-list">
+                    <!-- Todos will be dynamically added here -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="emptyState" class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h2>No tasks yet</h2>
+                    <p>Add a task to get started!</p>
+                </div>
+            </section>
+
+            <!-- Action Buttons -->
+            <section class="action-section">
+                <button id="clearCompletedBtn" class="btn btn-secondary">
+                    <i class="fas fa-trash"></i> Clear Completed
+                </button>
+                <button id="clearAllBtn" class="btn btn-danger">
+                    <i class="fas fa-broom"></i> Clear All
+                </button>
+            </section>
+
+            <!-- Priority Filter -->
+            <section class="priority-section">
+                <h3>Filter by Priority</h3>
+                <div class="priority-buttons">
+                    <button class="priority-btn active" data-priority="all">
+                        <span class="priority-color all"></span> All Priority
+                    </button>
+                    <button class="priority-btn" data-priority="high">
+                        <span class="priority-color high"></span> High
+                    </button>
+                    <button class="priority-btn" data-priority="medium">
+                        <span class="priority-color medium"></span> Medium
+                    </button>
+                    <button class="priority-btn" data-priority="low">
+                        <span class="priority-color low"></span> Low
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2024 Todo List App | Your tasks, your way</p>
+        </footer>
+    </div>
+
+    <!-- Priority Selection Modal -->
+    <div id="priorityModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Select Priority</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="priority-options">
+                    <button class="priority-option" data-priority-select="high">
+                        <span class="priority-badge high"></span>
+                        <span>High Priority</span>
+                    </button>
+                    <button class="priority-option" data-priority-select="medium">
+                        <span class="priority-badge medium"></span>
+                        <span>Medium Priority</span>
+                    </button>
+                    <button class="priority-option" data-priority-select="low">
+                        <span class="priority-badge low"></span>
+                        <span>Low Priority</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
