@@ -1,197 +1,357 @@
-// Переменные состояния
+// Оновлений script.js — українські повідомлення, DPR, drag для тексту, покращене масштабування зображення
+
 let currentProduct = 'mug';
 let currentColor = 'white';
 let uploadedImage = null;
-let textItems = [];
-let canvasContext = null;
-let canvasContext2 = null;
+let textItems = []; // { id, text, size, color, x, y, isDragging }
+let canvas = null;
+let ctx = null;
+let canvas2 = null;
+let ctx2 = null;
 
-// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
-    initializeCanvas();
-    setupEventListeners();
+  initializeCanvas();
+  setupEventListeners();
+  resetDesigner(); // встановити початкові стани
 });
 
 function initializeCanvas() {
-    const canvas = document.getElementById('designCanvas');
-    const canvas2 = document.getElementById('designCanvas2');
-    
-    if (canvas) {
-        canvas.width = 160;
-        canvas.height = 160;
-        canvasContext = canvas.getContext('2d');
-    }
-    
-    if (canvas2) {
-        canvas2.width = 140;
-        canvas2.height = 120;
-        canvasContext2 = canvas2.getContext('2d');
-    }
+  canvas = document.getElementById('designCanvas');
+  canvas2 = document.getElementById('designCanvas2');
+
+  setupCanvas(canvas, 160, 160, (c) => ctx = c);
+  setupCanvas(canvas2, 140, 120, (c) => ctx2 = c);
+}
+
+function setupCanvas(element, w, h, setCtx) {
+  if (!element) return;
+  const ratio = window.devicePixelRatio || 1;
+  element.width = Math.round(w * ratio);
+  element.height = Math.round(h * ratio);
+  element.style.width = w + 'px';
+  element.style.height = h + 'px';
+  const c = element.getContext('2d');
+  c.setTransform(ratio, 0, 0, ratio, 0, 0);
+  setCtx(c);
+
+  // Події для перетягування тексту (мікроскопічна підтримка)
+  element.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
 }
 
 function setupEventListeners() {
-    // Выбор изделия
-    document.querySelectorAll('.product-btn').forEach(btn => {
-        btn.addEventListener('click', selectProduct);
-    });
-
-    // Выбор цвета
-    document.querySelectorAll('.color-btn').forEach(btn => {
-        btn.addEventListener('click', selectColor);
-    });
-
-    // Загрузка фото
-    document.getElementById('photoInput').addEventListener('change', uploadPhoto);
-
-    // Текст
-    document.getElementById('textSize').addEventListener('input', updateTextSize);
-    document.getElementById('addTextBtn').addEventListener('click', addText);
-
-    // Действия
-    document.getElementById('downloadBtn').addEventListener('click', downloadDesign);
-    document.getElementById('resetBtn').addEventListener('click', resetDesigner);
+  document.querySelectorAll('.product-btn').forEach(btn => btn.addEventListener('click', selectProduct));
+  document.querySelectorAll('.color-btn').forEach(btn => btn.addEventListener('click', selectColor));
+  const photoInput = document.getElementById('photoInput');
+  if (photoInput) photoInput.addEventListener('change', uploadPhoto);
+  const textSize = document.getElementById('textSize');
+  if (textSize) textSize.addEventListener('input', updateTextSize);
+  const addTextBtn = document.getElementById('addTextBtn');
+  if (addTextBtn) addTextBtn.addEventListener('click', addText);
+  const downloadBtn = document.getElementById('downloadBtn');
+  if (downloadBtn) downloadBtn.addEventListener('click', downloadDesign);
+  const resetBtn = document.getElementById('resetBtn');
+  if (resetBtn) resetBtn.addEventListener('click', resetDesigner);
 }
 
 function selectProduct(e) {
-    const product = e.target.dataset.product;
-    currentProduct = product;
-    
-    // Обновление активной кнопки
-    document.querySelectorAll('.product-btn').forEach(btn => btn.classList.remove('active'));
-    e.target.classList.add('active');
-    
-    // Показ нужного превью
-    document.getElementById('mugPreview').style.display = product === 'mug' ? 'flex' : 'none';
-    document.getElementById('tshirtPreview').style.display = product === 'tshirt' ? 'flex' : 'none';
-    
-    redrawDesign();
+  const btn = e.currentTarget;
+  const product = btn.dataset.product;
+  if (!product) return;
+  currentProduct = product;
+
+  document.querySelectorAll('.product-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.getElementById('mugPreview').style.display = product === 'mug' ? 'flex' : 'none';
+  document.getElementById('tshirtPreview').style.display = product === 'tshirt' ? 'flex' : 'none';
+
+  redrawDesign();
 }
 
 function selectColor(e) {
-    const color = e.target.dataset.color;
-    currentColor = color;
-    
-    // Обновление активной кнопки
-    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
-    e.target.classList.add('active');
-    
-    // Обновление цвета изделия
-    const mug = document.querySelector('.mug');
-    const tshirt = document.querySelector('.tshirt');
-    
-    mug.classList = `mug mug-${color}`;
-    tshirt.classList = `tshirt tshirt-${color}`;
+  const btn = e.currentTarget;
+  const color = btn.dataset.color;
+  if (!color) return;
+  currentColor = color;
+
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const mug = document.querySelector('.mug');
+  const tshirt = document.querySelector('.tshirt');
+  if (mug) mug.className = `mug mug-${color}`;
+  if (tshirt) tshirt.className = `tshirt tshirt-${color}`;
+
+  redrawDesign();
 }
 
 function uploadPhoto(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-            uploadedImage = img;
-            redrawDesign();
-        };
-        img.src = event.target.result;
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Файл занадто великий. Допустимо до 10 MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      uploadedImage = img;
+      // центр і масштаб буде обчислено під час redraw
+      redrawDesign();
     };
-    reader.readAsDataURL(file);
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function updateTextSize(e) {
-    document.getElementById('sizeValue').textContent = e.target.value;
+  const val = e.target.value;
+  const span = document.getElementById('sizeValue');
+  if (span) span.textContent = val;
 }
 
 function addText() {
-    const textInput = document.getElementById('textInput');
-    const textSize = document.getElementById('textSize');
-    const textColor = document.getElementById('textColor');
-    
-    if (!textInput.value.trim()) {
-        alert('Пожалуйста, введите текст');
-        return;
-    }
-    
-    textItems.push({
-        text: textInput.value,
-        size: parseInt(textSize.value),
-        color: textColor.value,
-        id: Date.now()
-    });
-    
-    textInput.value = '';
-    redrawDesign();
+  const textInput = document.getElementById('textInput');
+  const textSize = document.getElementById('textSize');
+  const textColor = document.getElementById('textColor');
+
+  if (!textInput || !textInput.value.trim()) {
+    alert('Будь ласка, введіть текст.');
+    return;
+  }
+
+  // Додаємо текст по центру макета
+  const newItem = {
+    id: Date.now(),
+    text: textInput.value.trim(),
+    size: parseInt(textSize.value) || 24,
+    color: textColor.value || '#000000',
+    x: 0.5, // відносні координати (0..1)
+    y: 0.5,
+    isDragging: false
+  };
+  textItems.push(newItem);
+
+  textInput.value = '';
+  redrawDesign();
+}
+
+// --- Drag support ---
+let activeTextId = null;
+let pointerDownOnText = false;
+
+function onPointerDown(event) {
+  const { offsetX, offsetY } = getPointerPosOnCanvas(event);
+  const c = getCurrentCtx();
+  const cvs = getCurrentCanvas();
+  if (!c || !cvs) return;
+
+  // знаходимо текст під вказівником (зворотній порядок — останній текст має пріоритет)
+  const found = [...textItems].reverse().find(item => {
+    const metrics = measureTextOnCanvas(c, item);
+    const x = item.x * cvs.width / (window.devicePixelRatio || 1);
+    const y = item.y * cvs.height / (window.devicePixelRatio || 1);
+    const w = metrics.width;
+    const h = item.size;
+    return offsetX >= x - w/2 && offsetX <= x + w/2 && offsetY >= y - h && offsetY <= y + 10;
+  });
+
+  if (found) {
+    activeTextId = found.id;
+    found.isDragging = true;
+    pointerDownOnText = true;
+    event.currentTarget.setPointerCapture && event.currentTarget.setPointerCapture(event.pointerId);
+  } else {
+    activeTextId = null;
+    pointerDownOnText = false;
+  }
+}
+
+function onPointerMove(event) {
+  if (!pointerDownOnText || activeTextId == null) return;
+  const { offsetX, offsetY } = getPointerPosOnCanvas(event);
+  const cvs = getCurrentCanvas();
+  if (!cvs) return;
+  const relX = offsetX / (cvs.width / (window.devicePixelRatio || 1));
+  const relY = offsetY / (cvs.height / (window.devicePixelRatio || 1));
+  const item = textItems.find(t => t.id === activeTextId);
+  if (!item) return;
+  item.x = clamp(relX, 0.05, 0.95);
+  item.y = clamp(relY, 0.05, 0.95);
+  redrawDesign();
+}
+
+function onPointerUp(event) {
+  if (activeTextId != null) {
+    const item = textItems.find(t => t.id === activeTextId);
+    if (item) item.isDragging = false;
+  }
+  activeTextId = null;
+  pointerDownOnText = false;
+}
+
+function getPointerPosOnCanvas(e) {
+  const cvs = getCurrentCanvas();
+  if (!cvs) return { offsetX: 0, offsetY: 0 };
+  // get bounding rect to account for CSS size
+  const rect = cvs.getBoundingClientRect();
+  const offsetX = (e.clientX - rect.left);
+  const offsetY = (e.clientY - rect.top);
+  return { offsetX, offsetY };
+}
+
+function getCurrentCanvas() {
+  return currentProduct === 'mug' ? canvas : canvas2;
+}
+function getCurrentCtx() {
+  return currentProduct === 'mug' ? ctx : ctx2;
+}
+
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
+}
+
+function measureTextOnCanvas(c, item) {
+  c.save();
+  c.font = `${item.size}px Arial`;
+  const metrics = c.measureText(item.text);
+  c.restore();
+  return metrics;
 }
 
 function redrawDesign() {
-    const canvas = currentProduct === 'mug' 
-        ? document.getElementById('designCanvas') 
-        : document.getElementById('designCanvas2');
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Очистка канваса
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Рисование загруженного изображения
-    if (uploadedImage) {
-        const size = Math.min(canvas.width, canvas.height) - 10;
-        const x = (canvas.width - size) / 2;
-        const y = (canvas.height - size) / 2;
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, size / 2, 0, Math.PI * 2);
-        ctx.clip();
-        
-        ctx.drawImage(uploadedImage, x, y, size, size);
-        ctx.restore();
-    }
-    
-    // Рисование текста
-    let yOffset = 20;
-    textItems.forEach(item => {
-        ctx.font = `${item.size}px Arial`;
-        ctx.fillStyle = item.color;
-        ctx.textAlign = 'center';
-        
-        const x = canvas.width / 2;
-        const y = yOffset + item.size;
-        
-        ctx.fillText(item.text, x, y);
-        yOffset += item.size + 10;
-    });
+  const cvs = getCurrentCanvas();
+  const c = getCurrentCtx();
+  if (!c || !cvs) return;
+
+  // очистити
+  c.clearRect(0, 0, cvs.width, cvs.height);
+
+  // фон (прозорий)
+  // малюємо зображення (центрування і масштабування, зберігаючи пропорції)
+  if (uploadedImage) {
+    drawImageCover(c, uploadedImage, cvs);
+  }
+
+  // малюємо текстові елементи
+  textItems.forEach(item => {
+    c.save();
+    c.font = `${item.size}px Arial`;
+    c.fillStyle = item.color;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+
+    const drawX = item.x * (cvs.width / (window.devicePixelRatio || 1));
+    const drawY = item.y * (cvs.height / (window.devicePixelRatio || 1));
+    c.fillText(item.text, drawX, drawY);
+    c.restore();
+  });
+}
+
+// Малюємо зображення так, щоб воно покривало канву (cover)
+function drawImageCover(c, img, cvs) {
+  const dstW = cvs.width / (window.devicePixelRatio || 1);
+  const dstH = cvs.height / (window.devicePixelRatio || 1);
+
+  const imgRatio = img.width / img.height;
+  const dstRatio = dstW / dstH;
+
+  let sw, sh, sx, sy;
+
+  if (imgRatio > dstRatio) {
+    // зображення ширше — обрізати по боках
+    sh = img.height;
+    sw = sh * dstRatio;
+    sx = (img.width - sw) / 2;
+    sy = 0;
+  } else {
+    // зображення вищі — обрізати по верх/низ
+    sw = img.width;
+    sh = sw / dstRatio;
+    sx = 0;
+    sy = (img.height - sh) / 2;
+  }
+
+  c.drawImage(img, sx, sy, sw, sh, 0, 0, dstW, dstH);
 }
 
 function downloadDesign() {
-    const canvas = currentProduct === 'mug' 
-        ? document.getElementById('designCanvas') 
-        : document.getElementById('designCanvas2');
-    
-    const link = document.createElement('a');
-    link.href = canvas.toDataURL('image/png');
-    link.download = `memory-moments-${currentProduct}-${currentColor}.png`;
-    link.click();
+  const cvs = getCurrentCanvas();
+  if (!cvs) {
+    alert('Немає активного макета для завантаження.');
+    return;
+  }
+  // Створюємо тимчасовий canvas з потрібним розміром для експорту (висока роздільність)
+  const exportCanvas = document.createElement('canvas');
+  const exportW = 1200; // бажаний експортний розмір
+  const exportH = Math.round(exportW * (cvs.height / cvs.width));
+  exportCanvas.width = exportW;
+  exportCanvas.height = exportH;
+  const exportCtx = exportCanvas.getContext('2d');
+
+  // малюємо фон (білий для білого виробу, або прозорий для ін.)
+  exportCtx.fillStyle = '#ffffff';
+  exportCtx.fillRect(0, 0, exportW, exportH);
+
+  // малюємо зображення/текст, масштабуючи координати
+  if (uploadedImage) {
+    // використовуємо подібну логіку cover але в розмірі export
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = exportW;
+    tmpCanvas.height = exportH;
+    const tmpC = tmpCanvas.getContext('2d');
+    drawImageCover(tmpC, uploadedImage, { width: exportW, height: exportH });
+    exportCtx.drawImage(tmpCanvas, 0, 0);
+  }
+
+  // малюємо текст
+  textItems.forEach(item => {
+    exportCtx.save();
+    exportCtx.fillStyle = item.color;
+    const fontSize = item.size * (exportW / (cvs.width / (window.devicePixelRatio || 1)));
+    exportCtx.font = `${fontSize}px Arial`;
+    exportCtx.textAlign = 'center';
+    exportCtx.textBaseline = 'middle';
+    const x = item.x * exportW;
+    const y = item.y * exportH;
+    exportCtx.fillText(item.text, x, y);
+    exportCtx.restore();
+  });
+
+  const link = document.createElement('a');
+  link.href = exportCanvas.toDataURL('image/png');
+  link.download = `memory-moments_${currentProduct}_${currentColor}.png`;
+  link.click();
 }
 
 function resetDesigner() {
-    uploadedImage = null;
-    textItems = [];
-    currentColor = 'white';
-    currentProduct = 'mug';
-    
-    document.getElementById('photoInput').value = '';
-    document.getElementById('textInput').value = '';
-    document.getElementById('textSize').value = '24';
-    document.getElementById('sizeValue').textContent = '24';
-    
-    // Сброс активных кнопок
-    document.querySelectorAll('.product-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
-    
-    document.querySelector('[data-product="mug"]').classList.add('active');
-    document.querySelector('[data-color="white"]').classList.add('active');
-    
-    redrawDesign();
+  uploadedImage = null;
+  textItems = [];
+  currentColor = 'white';
+  currentProduct = 'mug';
+
+  const photoInput = document.getElementById('photoInput');
+  if (photoInput) photoInput.value = '';
+  const textInput = document.getElementById('textInput');
+  if (textInput) textInput.value = '';
+  const textSize = document.getElementById('textSize');
+  if (textSize) textSize.value = '24';
+  const sizeValue = document.getElementById('sizeValue');
+  if (sizeValue) sizeValue.textContent = '24';
+
+  document.querySelectorAll('.product-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+  const defaultProduct = document.querySelector('[data-product="mug"]');
+  const defaultColor = document.querySelector('[data-color="white"]');
+  if (defaultProduct) defaultProduct.classList.add('active');
+  if (defaultColor) defaultColor.classList.add('active');
+
+  // оновити відображення прев'ю
+  document.getElementById('mugPreview').style.display = 'flex';
+  document.getElementById('tshirtPreview').style.display = 'none';
+
+  redrawDesign();
 }
